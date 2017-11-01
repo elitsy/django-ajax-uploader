@@ -24,23 +24,9 @@ class AjaxFileUploader(object):
     def _ajax_upload(self, request, *args, **kwargs):
         if request.method == "POST":
             if request.is_ajax():
-                # the file is stored raw in the request
-                upload = request
-                is_raw = True
-                # AJAX Upload will pass the filename in the querystring if it
-                # is the "advanced" ajax upload
-                try:
-                    if 'qqfile' in request.GET:
-                        filename = request.GET['qqfile']
-                    else:
-                        filename = request.REQUEST['qqfilename']
-                except KeyError:
-                    return HttpResponseBadRequest("AJAX request not valid")
-            # not an ajax upload, so it was the "basic" iframe version with
-            # submission via form
-            else:
                 is_raw = False
-                if len(request.FILES) == 1:
+                try:
+                    filename = request.POST['qqfilename']
                     # FILES is a dictionary in Django but Ajax Upload gives
                     # the uploaded file an ID based on a random number, so it
                     # cannot be guessed here in the code. Rather than editing
@@ -49,14 +35,15 @@ class AjaxFileUploader(object):
                     # only have one entry. Thus, we can just grab the first
                     # (and only) value in the dict.
                     upload = request.FILES.values()[0]
-                else:
-                    raise Http404("Bad Upload")
-                filename = upload.name
+                except (KeyError, IndexError):
+                    return HttpResponseBadRequest("AJAX request not valid")
+            else:
+                raise Http404("Bad Upload")
 
             backend = self.get_backend()
 
             # custom filename handler
-            filename = (backend.update_filename(request, filename, *args, **kwargs)
+            filename = (backend.update_filename(request, filename, *args, **kwargs) \
                         or filename)
             # save the file
             backend.setup(filename, *args, **kwargs)
